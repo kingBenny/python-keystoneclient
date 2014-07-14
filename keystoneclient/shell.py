@@ -202,6 +202,11 @@ class OpenStackIdentityShell(object):
                                  "network delays. Default is %s seconds." %
                                  access.STALE_TOKEN_DURATION)
 
+        parser.add_argument('--federated', '-F',
+                            dest="federated", 
+                            action='store_true',
+                            help="This is the Federated Option")
+
         session.Session.register_cli_options(parser)
         return parser
 

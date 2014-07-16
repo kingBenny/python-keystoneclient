@@ -283,12 +283,27 @@ class OpenStackIdentityShell(object):
                 print(msg)
 
         else:
+            
+            #This command error is specifically for federated errors
+            #when the user requests federation but fails to provide
+            #any authentication url.
+            if args.federated and not args.os_auth_url:
+                raise exc.CommandError(
+                    'If using Federated authentication, you must specify an '
+                    'endpoint with --os_auth_url')
+
             if not args.os_auth_url:
                 raise exc.CommandError(
                     'Expecting an auth URL via either --os-auth-url or '
                     'env[OS_AUTH_URL]')
 
-            if args.os_username or args.os_password:
+            #federated authentication requires the -F or --federated flag
+            #and an os_auth_url. We tested the presence of os_auth_url
+            #in the previous if statement. 
+            if args.federated:
+                print('Federated Authentication chosen...')
+
+            elif args.os_username or args.os_password:
                 if not args.os_username:
                     raise exc.CommandError(
                         'Expecting a username provided via either '

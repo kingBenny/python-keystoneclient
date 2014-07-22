@@ -203,7 +203,7 @@ class OpenStackIdentityShell(object):
                                  access.STALE_TOKEN_DURATION)
 
         parser.add_argument('--federated', '-F',
-                            dest="federated", 
+                            dest="federated",
                             action='store_true',
                             help="This is the Federated Option")
 
@@ -283,7 +283,6 @@ class OpenStackIdentityShell(object):
                 print(msg)
 
         else:
-            
             #This command error is specifically for federated errors
             #when the user requests federation but fails to provide
             #any authentication url.
@@ -299,7 +298,7 @@ class OpenStackIdentityShell(object):
 
             #federated authentication requires the -F or --federated flag
             #and an os_auth_url. We tested the presence of os_auth_url
-            #in the previous if statement. 
+            #in the previous if statement.
             if args.federated:
                 print('Federated Authentication chosen...')
 
@@ -404,7 +403,8 @@ class OpenStackIdentityShell(object):
                 use_keyring=args.os_cache,
                 force_new_token=args.force_new_token,
                 stale_duration=args.stale_duration,
-                timeout=args.timeout)
+                timeout=args.timeout,
+                federated=args.federated)
 
         try:
             args.func(self.cs, args)

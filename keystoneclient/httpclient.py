@@ -41,9 +41,11 @@ from keystoneclient import access
 from keystoneclient.auth import base
 from keystoneclient import baseclient
 from keystoneclient import exceptions
+from keystoneclient.contrib.federated import federated as federated_API
 from keystoneclient.openstack.common import jsonutils
 from keystoneclient import session as client_session
 from keystoneclient import utils
+
 
 
 _logger = logging.getLogger(__name__)
@@ -66,7 +68,7 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
                  user_domain_id=None, user_domain_name=None, domain_id=None,
                  domain_name=None, project_id=None, project_name=None,
                  project_domain_id=None, project_domain_name=None,
-                 trust_id=None, session=None, **kwargs):
+                 trust_id=None, session=None, federated=None, **kwargs):
         """Construct a new http client
 
         :param string user_id: User ID for authentication. (optional)
@@ -211,6 +213,11 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
         # trust-related attributes
         if trust_id:
             self.trust_id = trust_id
+        
+        # federated authentication
+        # federated must always be present as its value is tested in the
+        # client classes that inherit from this.
+        self.federated = federated
 
         # endpoint selection
         if auth_url:
@@ -391,8 +398,26 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
         new_token_needed = False
         if auth_ref is None or self.force_new_token:
             new_token_needed = True
-            kwargs['password'] = password
-            resp = self.get_raw_token_from_identity_service(**kwargs)
+            #this conditional statement was added to improve integration with existing
+            #authenticate function.
+            if self.federated:
+                try:
+                    print("federated authentication chosen....")    
+                    resp = federated_API.federatedAuthentication(auth_url, tenantFn=project_id)
+                    url = None
+                    print("catalogs contents is: ", resp['access'])
+                    #catalogs = body['access']
+                    #for service in catalogs:
+                    #    url = service['endpoints'][0]['publicURL']
+                    #token_id = body['access']['token']['id']
+                    #if not url:
+                    #    raise exceptions.FederatedException("There is no object-store endpoint on this auth server.")        
+                except exceptions.FederatedException as fedex:
+                    print("fedex: ", fedex)
+                    raise exceptions.FederatedException("Error while getting answers from auth server")
+            else:    
+                kwargs['password'] = password
+                resp = self.get_raw_token_from_identity_service(**kwargs)
 
             if isinstance(resp, access.AccessInfo):
                 self.auth_ref = resp
@@ -410,6 +435,27 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
         self.process_token(region_name=region_name)
         if new_token_needed:
             self.store_auth_ref_into_keyring(keyring_key)
+        return True
+
+    #@param url: set by the --os-auth-url flag. The keystone url
+    #@param realm:
+    #@param tenant_name: if the user has a project name they wish to 
+    #specify. This short-cuts the authentication process. 
+    def authenticate_federated(self, realm=None, tenant_name=None):
+        print('Federated url =', self.auth_url)
+        try:
+            body = federated_API.federatedAuthentication(self.auth_url, tenantFn=self.project_id)
+            print("federated body:", body)    
+            #url = None
+            #catalogs = body['access']
+            #for service in catalogs:
+            #    url = service['endpoints'][0]['publicURL']
+            #token_id = body['access']['token']['id']
+            #if not url:
+            #    raise exceptions.FederatedException("There is no object-store endpoint on this auth server.")        
+        except exceptions.FederatedException as fedex:
+            print("fedex: ", fedex)
+            raise exceptions.FederatedException("Error while getting answers from auth server")
         return True
 
     def _build_keyring_key(self, **kwargs):

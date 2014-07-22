@@ -143,6 +143,10 @@ class Client(httpclient.HTTPClient):
         # DEPRECATED: if session is passed then we go to the new behaviour of
         # authenticating on the first required call.
         if not kwargs.get('session') and self.management_url is None:
+            #fix later BLM
+            #if self.federated:
+            #    self.authenticate_federated()
+            #else:
             self.authenticate()
 
     def get_raw_token_from_identity_service(self, auth_url, username=None,

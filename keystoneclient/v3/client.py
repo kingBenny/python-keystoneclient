@@ -16,6 +16,7 @@
 import logging
 
 from keystoneclient.auth.identity import v3 as v3_auth
+from keystoneclient.contrib.federated import federated as federated_API
 from keystoneclient import exceptions
 from keystoneclient import httpclient
 from keystoneclient.openstack.common import jsonutils
@@ -163,34 +164,42 @@ class Client(httpclient.HTTPClient):
         try:
             if auth_url is None:
                 raise ValueError("Cannot authenticate without an auth_url")
+            if self.federated:
+                print('auth_url = ', self.auth_url)
+                tenantData, resp = federated_API.federatedAuthentication(
+                                              keystoneEndpoint = self.auth_url,
+                                              v3=True,
+                                              scoped_token=False)
+                return tenantData
 
-            auth_methods = []
+            else:
+                auth_methods = []
 
-            if token:
-                auth_methods.append(v3_auth.TokenMethod(token=token))
+                if token:
+                    auth_methods.append(v3_auth.TokenMethod(token=token))
 
-            if password:
-                m = v3_auth.PasswordMethod(user_id=user_id,
-                                           username=username,
-                                           user_domain_id=user_domain_id,
-                                           user_domain_name=user_domain_name,
-                                           password=password)
-                auth_methods.append(m)
+                if password:
+                    m = v3_auth.PasswordMethod(user_id=user_id,
+                                               username=username,
+                                               user_domain_id=user_domain_id,
+                                               user_domain_name=user_domain_name,
+                                               password=password)
+                    auth_methods.append(m)
 
-            if not auth_methods:
-                msg = 'A user and password or token is required.'
-                raise exceptions.AuthorizationFailure(msg)
+                if not auth_methods:
+                    msg = 'BANG! A user and password or token is required.' + str(self.federated)
+                    raise exceptions.AuthorizationFailure(msg)
 
-            plugin = v3_auth.Auth(auth_url, auth_methods,
-                                  trust_id=trust_id,
-                                  domain_id=domain_id,
-                                  domain_name=domain_name,
-                                  project_id=project_id,
-                                  project_name=project_name,
-                                  project_domain_id=project_domain_id,
-                                  project_domain_name=project_domain_name)
+                plugin = v3_auth.Auth(auth_url, auth_methods,
+                                      trust_id=trust_id,
+                                      domain_id=domain_id,
+                                      domain_name=domain_name,
+                                      project_id=project_id,
+                                      project_name=project_name,
+                                      project_domain_id=project_domain_id,
+                                      project_domain_name=project_domain_name)
 
-            return plugin.get_auth_ref(self.session)
+                return plugin.get_auth_ref(self.session)
         except (exceptions.AuthorizationFailure, exceptions.Unauthorized):
             _logger.debug('Authorization failed.')
             raise

@@ -44,7 +44,11 @@ class AccessInfo(dict):
             if AccessInfoV3.is_valid(body, **kwargs):
                 token = None
                 if resp:
-                    token = resp.headers['X-Subject-Token']
+                    try:
+                        token = resp.headers['X-Subject-Token']
+                #bug in requests lack of case insensitvity
+                    except KeyError:
+                        token = resp.headers['x-subject-token']
                 if body:
                     if region_name:
                         body['token']['region_name'] = region_name

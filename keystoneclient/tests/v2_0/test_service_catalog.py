@@ -10,6 +10,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import sys
+
 from keystoneclient import access
 from keystoneclient import exceptions
 from keystoneclient.tests.v2_0 import client_fixtures
@@ -69,6 +71,7 @@ class ServiceCatalogTest(utils.TestCase):
                           endpoint_type='internalURL')
 
     def test_service_catalog_get_endpoints_region_names(self):
+        sys.stderr.write(type(self.AUTH_RESPONSE_BODY).__name__)
         auth_ref = access.AccessInfo.factory(None, self.AUTH_RESPONSE_BODY)
         sc = auth_ref.service_catalog
 

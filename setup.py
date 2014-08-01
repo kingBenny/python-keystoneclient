@@ -26,6 +26,6 @@ except ImportError:
     pass
 
 setuptools.setup(
-    setup_requires=['pbr'],
-    data_files=[('lib/python2.7/dist-packages/keystoneclient/contrib/federated/protocols/config',['federated.cfg']), ('lib/python2.7/dist-packages/keystoneclient/contrib/federated/protocols/certs',['certs/server.key', 'certs/server.crt'])],
+    setup_requires=['pbr'], 
+    data_files=[('lib/python2.7/dist-packages/keystoneclient/contrib/federated/protocols/config',['federated.cfg']), ('lib/python2.7/dist-packages/keystoneclient/contrib/federated/protocols/certs', ['certs/server.key', 'certs/server.crt'])],
     pbr=True)

@@ -214,8 +214,9 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
             self.trust_id = trust_id
 
         # federated authentication
-        # federated must always be present as its value is tested in the
-        # client classes that inherit from this.
+        # federated must always be present in some form 
+        # as its value is tested in the client classes that 
+        # inherit from this.
         self.federated = federated
 
         # endpoint selection
@@ -406,8 +407,7 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
                         v3 = True
                     token, resp = federated_API.federatedAuthentication(auth_url,
                             tenantFn=project_id, v3=v3, scoped_token=False)
-                    #print('response headers: ', resp.headers)
-                    #convert token to an accessinfo object
+                    #convert the token to an accessinfo object
                     resp = access.AccessInfo.factory(resp=resp, body=token)
                 except exceptions.FederatedException as fedex:
                     raise exceptions.FederatedException('Error while getting + \

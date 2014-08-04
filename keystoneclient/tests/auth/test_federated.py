@@ -152,3 +152,4 @@ class FederatedAuthenticationTests(utils.TestCase):
         self.assertRaises(exceptions.FederatedException,
                           federated_API_utils.selectRealm, 
                           self.REALM_LIST)
+

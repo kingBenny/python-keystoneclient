@@ -66,7 +66,7 @@ def selectTenantOrDomain(tenantsList, serverName=None):
 
 ## Displays the list of realm to the user
 def selectRealm(realmList):
-    print(realmList)
+    #print(realmList)
     print('Please use one of the following services to authenticate you:')
     if not realmList:
         raise exceptions.FederatedException('There are no available realms for the user specified')

@@ -205,7 +205,9 @@ class OpenStackIdentityShell(object):
         parser.add_argument('--federated', '-F',
                             dest="federated",
                             action='store_true',
-                            help="This is the Federated Option")
+                            help="Federated authentication. To be used "
+                                 "in conjunction with --os-auth-url."
+                                 "default is regular authentication.")
 
         session.Session.register_cli_options(parser)
         return parser
@@ -300,7 +302,7 @@ class OpenStackIdentityShell(object):
             #and an os_auth_url. We tested the presence of os_auth_url
             #in the previous if statement.
             if args.federated:
-                print('Federated Authentication chosen...')
+                print('Federated Authentication chosen...\n')
 
             elif args.os_username or args.os_password:
                 if not args.os_username:

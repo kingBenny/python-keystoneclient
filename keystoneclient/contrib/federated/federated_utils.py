@@ -15,7 +15,7 @@ def middlewareRequest(keystoneEndpoint, data={}, method="GET", withheader=True, 
     if withheader:
         headers = {'X-Authentication-Type': 'federated'}
     else:
-	headers = {}
+	    headers = {}
     if pool is None:
         pool = urllib3.PoolManager()
     if method == "GET":

@@ -198,9 +198,12 @@ class Session(object):
         headers = kwargs.setdefault('headers', dict())
 
         if authenticated is None:
+            print("value of self.auth:", self.auth)
             authenticated = bool(auth or self.auth)
 
         if authenticated:
+            print("value of passed auth:", auth)
+            auth = self.auth
             token = self.get_token(auth)
 
             if not token:
@@ -217,6 +220,8 @@ class Session(object):
         # requests. We check fully qualified here by the presence of a host.
         url_data = urllib.parse.urlparse(url)
         if endpoint_filter and not url_data.netloc:
+            print("printing auth: ", auth)
+            print("in session.py printing endpoint_filter: ", endpoint_filter)
             base_url = self.get_endpoint(auth, **endpoint_filter)
 
             if not base_url:
@@ -446,6 +451,7 @@ class Session(object):
         """
         if not auth:
             auth = self.auth
+        print("In get endpoint of session.py about to call get_endpoint in HTTPclient.py: ", auth)
 
         if not auth:
             raise exceptions.MissingAuthPlugin('An auth plugin is required to '

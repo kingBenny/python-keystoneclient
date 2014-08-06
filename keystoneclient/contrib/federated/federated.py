@@ -56,9 +56,9 @@ def federatedAuthentication(keystoneEndpoint, realm=None, tenantFn=None,
     print('This is the tenant Data: ', tenantData)
     #we need these in the library for the ability to swap to a scoped token for a project 
     if scoped_token:
-        tenant = futils.getTenantId(tenantData['tenants'], tenantFn)
+        tenant = futils.getTenantId(tenantData['token']['extras']['projects'], tenantFn)
         if tenant is None:
-            tenant = futils.selectTenantOrDomain(tenantData['tenants'])
+            tenant = futils.selectTenantOrDomain(tenantData['token']['extras']['projects'])
             if tenant.get("project", None) is None and tenant.get("domain", None) is None:
                 tenant = tenant["id"]
                 type = "tenantId"
@@ -69,8 +69,9 @@ def federatedAuthentication(keystoneEndpoint, realm=None, tenantFn=None,
                 else:
                     tenant = tenant["domain"]["id"]
                     type = "domainId"
-        scopedToken = swapTokens(keystoneEndpoint, tenantData['unscopedToken'], type, tenant, v3)
-        return scopedToken
+        scopedToken, resp = swapTokens(keystoneEndpoint, resp.headers['x-subject-token'], type, tenant, v3)
+        print("scoped token: ", scopedToken)
+        return scopedToken, resp
     else:
         if v3 == True:
             return tenantData, resp
@@ -182,10 +183,11 @@ def swapTokens(keystoneEndpoint, unscopedToken, type, tenantId, v3):
     keystoneEndpoint+="/"
     if v3 == True:
        keystoneEndpoint+="auth/"
-       data = {"auth": {"identity": {"methods": ["token"],"token": {"id": unscopedToken}, "scope":{}}}}
+       data = {"auth": {"identity": {"methods": ["token"],"token": {"id": unscopedToken}}, "scope":{}}}
        if type == 'domainId':
-           data["auth"]["identity"]["scope"]["domain"] = {"id": tenantId}
+           data["auth"]["scope"]["domain"] = {"id": tenantId}
        else:
-           data["auth"]["identity"]["scope"]["project"] = {"id": tenantId}
+           data["auth"]["scope"]["project"] = {"id": tenantId}
+    print("value of data sent = ", data)
     resp = futils.middlewareRequest(keystoneEndpoint + "tokens", data,'POST', withheader = False)
-    return json.loads(resp.data)
+    return json.loads(resp.data), resp

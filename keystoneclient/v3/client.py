@@ -14,7 +14,7 @@
 #    under the License.
 
 import logging
-
+from keystoneclient import access
 from keystoneclient.auth.identity import v3 as v3_auth
 from keystoneclient.contrib.federated import federated as federated_API
 from keystoneclient import exceptions
@@ -165,12 +165,15 @@ class Client(httpclient.HTTPClient):
             if auth_url is None:
                 raise ValueError("Cannot authenticate without an auth_url")
             if self.federated:
-                print('auth_url = ', self.auth_url)
+                print("\n\n")
+                print('************************************************In client V3: auth_url = ', self.auth_url)
+                print("\n\n")
                 tenantData, resp = federated_API.federatedAuthentication(
                                               keystoneEndpoint = self.auth_url,
                                               v3=True,
-                                              scoped_token=False)
-                return tenantData
+                                              scoped_token=True)
+                return access.AccessInfoV3(resp.headers['X-Subject-Token'],
+                                   tenantData)
 
             else:
                 auth_methods = []
@@ -187,7 +190,7 @@ class Client(httpclient.HTTPClient):
                     auth_methods.append(m)
 
                 if not auth_methods:
-                    msg = 'BANG! A user and password or token is required.' + str(self.federated)
+                    msg = "A user and password or token is required."
                     raise exceptions.AuthorizationFailure(msg)
 
                 plugin = v3_auth.Auth(auth_url, auth_methods,

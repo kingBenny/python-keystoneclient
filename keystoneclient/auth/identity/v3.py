@@ -109,7 +109,6 @@ class Auth(base.BaseIdentityPlugin):
 
         try:
             resp_data = resp.json()['token']
-            print("resp_data the get_auth_ref() in v3.py: ", resp_data)
         except (KeyError, ValueError):
             raise exceptions.InvalidResponse(response=resp)
 

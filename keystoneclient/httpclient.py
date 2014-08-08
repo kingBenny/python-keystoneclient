@@ -263,11 +263,6 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
             return self.auth_token_from_user
 
     def get_endpoint(self, session, interface=None, **kwargs):
-        print("\n\n")
-        print("In get endpoint and value of interface is, ", interface)
-        print("value of auth_url is ", self.auth_url)
-        print("value of management_url is ", self.management_url)
-        print("\n\n")
         if interface == 'public':
             return self.auth_url
         else:
@@ -406,15 +401,16 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
             '''this conditional statement handles Federated authentication 
             functionality with existing authenticate function.'''
             if self.federated:
-                print("I'm in the HTTPClient class calling federation &&**********&*&*&*********")
                 try:
-                    v3 = False
-                    if 'V3' in auth_url or 'v3' in auth_url:
-                        v3 = True
                     token, resp = federated_API.federatedAuthentication(auth_url,
-                            tenantFn=project_id, v3=v3, scoped_token=True)
+                            tenantFn=project_id, scoped=True)
                     #convert the token to an accessinfo object
-                    resp = access.AccessInfo.factory(resp=resp, body=token)
+                    print("about to make accessInfo obj")
+                    print("Token is: ", token)
+                    print("resp is: ", resp)
+                    resp = access.AccessInfo.factory(resp=resp, body=token,
+                                                    region_name=self.region_name)
+                    print("created an accessInfo obj")
                 except exceptions.FederatedException as fedex:
                     raise exceptions.FederatedException('Error while getting + \
                                                      answers from auth server')
@@ -591,9 +587,7 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
             pass
 
         kwargs.setdefault('authenticated', False)
-        print("befre the call to super")
         resp = super(HTTPClient, self).request(url, method, **kwargs)
-        print("value of resp:", resp)
         return resp, self._decode_body(resp)
 
     def _cs_request(self, url, method, management=True, **kwargs):

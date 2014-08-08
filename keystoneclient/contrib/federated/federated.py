@@ -18,176 +18,137 @@ import federated_utils as futils
 import imp
 import json
 import os
+import requests
 import ssl
 import sys
 #import urllib2
-#import urlparse
+import urlparse
 import webbrowser
+import time
 
 
-'''The super-function calls different API methods to obtain a scoped token.
-keystone does not use scoped tokens, so this function can be called with 
-scoped_token=False in order to use an unscoped token only.
-@param keystoneEndpoint The keystone url
-@param realm The IdP the user will be using
-@param tenantFn The tenant friendly name the user wants to use
-'''
-def federatedAuthentication(keystoneEndpoint, realm=None, tenantFn=None, 
-                            v3=False, scoped_token=True):
-    response = getRealmList(keystoneEndpoint, v3)
+def federatedAuthentication(keystoneEndpoint, realm=None, tenantFn=None, scoped=True):
+    response = get_IdP_List(keystoneEndpoint)
     if realm is None or {'name': realm} not in response['realms']:
-        if v3 == True:
-            realm = futils.selectRealm(response.get('error').get('identity')
-                                       .get('federated').get('providers'))
-        else:
-            realm = futils.selectRealm(response['realms'])
-    request = getIdPRequest(keystoneEndpoint, realm, v3)
-    # Load the correct protocol module according to the IdP type
-    protocol = realm['type'].split('.')[1]
-    processing_module = load_protocol_module(protocol)
-    if not processing_module:
-        sys.exit(1)
-    if v3 == True:
-        request = request.get('error').get('identity').get('federated')
-        response = processing_module.getIdPResponse(request['endpoint'] + '?', request['data'], realm)
+        realm = futils.selectRealm(response.get('identity_providers'))
+    protocol_list = get_protocol_List(keystoneEndpoint, realm)
+    selected_protocol = futils.selectProtocol(protocol_list['protocols'])
+    authentication_endpoint = keystoneEndpoint + '/OS-FEDERATION/identity_providers/' + realm['id'] + '/protocols/' + selected_protocol['id'] + '/auth'
+    unscoped_token = get_unscoped_token(authentication_endpoint)
+    if scoped:
+        scoped_token = get_scoped_token(keystoneEndpoint, unscoped_token, selected_protocol)
+        return json.loads(scoped_token.text), scoped_token
+        #the scoped_token.text is the body (lacking the ID) and the scoped_token is the entire server response, containing the header and 
+        #therefore the iD.
     else:
-        response = processing_module.getIdPResponse(request['idpEndpoint'], request['idpRequest'], realm)
-    tenantData, resp = getUnscopedToken(keystoneEndpoint, response, realm, v3)
-    print('This is the tenant Data: ', tenantData)
-    #we need these in the library for the ability to swap to a scoped token for a project 
-    if scoped_token:
-        tenant = futils.getTenantId(tenantData['token']['extras']['projects'], tenantFn)
-        if tenant is None:
-            tenant = futils.selectTenantOrDomain(tenantData['token']['extras']['projects'])
-            if tenant.get("project", None) is None and tenant.get("domain", None) is None:
-                tenant = tenant["id"]
-                type = "tenantId"
-            else:
-                if tenant.get("domain", None) is None:
-                    tenant = tenant["project"]["id"]
-                    type = "tenantId"
-                else:
-                    tenant = tenant["domain"]["id"]
-                    type = "domainId"
-        scopedToken, resp = swapTokens(keystoneEndpoint, resp.headers['x-subject-token'], type, tenant, v3)
-        print("scoped token: ", scopedToken)
-        return scopedToken, resp
-    else:
-        if v3 == True:
-            return tenantData, resp
-        token = {}
-        token['access'] = {}
-        token['access']['token'] = tenantData['token']
-        token['access']['serviceCatalog'] = []
-        token['access']['user'] = tenantData['user']
-         
-        return token, None
+        return unscoped_token        
 
-def load_protocol_module(protocol):
-    ''' Dynamically load correct module for processing authentication
-        according to identity provider's protocol'''
+def get_IdP_List(keystone_endpoint):
+    keystone_endpoint += '/OS-FEDERATION/identity_providers'
+    resp = requests.get(keystone_endpoint)
+    info = json.loads(resp.text)
+    return info
+
+def get_protocol_List(keystone_endpoint, realm):
+    #get and return a list of protocols for the specified IdP
+    protocols = requests.get(realm['links']['protocols'])
+    protocol_data = json.loads(protocols.text)
+    return protocol_data
+
+def get_unscoped_token(authentication_endpoint):
+    global response
+    response = None
+    config = open(os.path.join(os.path.dirname(__file__),                   #<---------------try to load certificate
+                  "protocols/config/federated.cfg"), "Ur")
+    line = config.readline().rstrip()
+    key = ""
+    cert = ""
+    while line:
+        if line.split('=')[0] == "KEY":
+            key = line.split("=")[1].rstrip()
+
+        if line.split("=")[0] == "CERT":
+            cert = line.split("=")[1].rstrip()
+        if line.split('=')[0] == "TIMEOUT":
+            timeout = int(line.split("=")[1])
+        line = config.readline().rstrip()
+    config.close()
+    timeout = 20                        #<---------- the timeout read from the certificate file is far too long
+    if key == "default":
+        key = os.path.join(os.path.dirname(__file__), "protocols/certs/server.key")
+    if cert == "default":
+        cert = os.path.join(os.path.dirname(__file__), "protocols/certs/server.crt") 
+
+    httpd = BaseHTTPServer.HTTPServer(('localhost', 8080), RequestHandler)          #<---------------------HTTPServer
     try:
-        return imp.load_source(protocol, os.path.dirname(__file__)+'/protocols/'+protocol+'.py')
-    except IOError as e:
-        raise exceptions.FederatedException("The selected Identity Service is not supported by your client, please restart the process and choose an alternative provider")
-        
-## Get the list of all the IdP available
-# @param keystoneEndpoint The keystone url
-def getRealmList(keystoneEndpoint, v3):
-#modify request by appending the endpoint with /auth/tokens
-#build the body of the request. 
-    data = {}
-    if v3 == True:
-        keystoneEndpoint += '/auth/tokens'
-        data = {'auth': {
-                   'identity': {
-                       'methods': ['federated'],
-                       'federated': {
-                           'phase': 'discovery'
-                        }
-                    }
-                }                                                      
-                }
+        httpd.socket = ssl.wrap_socket(httpd.socket, keyfile=key,
+                       certfile=cert, server_side=True)
+        httpd.socket.settimeout(1)
+    except BaseException as e:
+        print(e.value)
 
-    #look at last param and understand the need for header with v2 and lack of header for v3.
-    resp = futils.middlewareRequest(keystoneEndpoint, data, 'POST', not v3)
-    info = json.loads(resp.data)
-    return info
+    query_string = '?refer_to=localhost:8080&ssl=1'                             #<-----------handles our redirect to loalhost
 
-## Get the authentication request to send to the IdP
-# @param keystoneEndpoint The keystone url
-# @param realm The name of the IdP
-def getIdPRequest(keystoneEndpoint, realm, v3):
-    if v3 == True:
-        keystoneEndpoint += '/auth/tokens'
-        data = {'auth': {
-                   'identity': {
-                       'methods': ['federated'],
-                       'federated': {
-                           'phase': 'request',
-                           'provider_id': realm['id']
-                        }
-                    }
-                }                                                      
-                }
-    else:
-        data = {'realm': realm}
-    resp = futils.middlewareRequest(keystoneEndpoint, data, 'POST')            #Do we need a header for this request in v3?
-    info = json.loads(resp.data)
-    return info
+    webbrowser.open(authentication_endpoint + query_string)                       #<--------------------------open browser
+    count = 0
+    while response is None and count < timeout:                             #<--------------------------listen for response
+        try:
+            httpd.handle_request()
+            count = count + 1
+        except Exception as e:
+            print(e)
+    if response is None:
+        print('There was no response from the Identity Provider +\
+               or the request timed out')
+        exit("An error occurred, please try again")
+    print("Authentication Complete\n")
+    return response[0]
 
-## Get an unscoped token for the user along with the tenants list
-# @param keystoneEndpoint The keystone url
-# @param idpResponse The assertion retreived from the IdP
-def getUnscopedToken(keystoneEndpoint, idpResponse, realm=None, v3=False):
-    if realm is None:
-        data = {'idpResponse' : idpResponse}
-    else:
-        if v3 == True:
-            keystoneEndpoint += '/auth/tokens'
-            data = {'auth': {
-                   'identity': {
-                       'methods': ['federated'],
-                       'federated': {
-                           'phase': 'validate',           #ok correct phase
-                           'data': idpResponse,           #ok an assertion I think
-                           'provider_id': realm['id']     #ok
-                        }
-                    }
-                }                                                      
-                } 
-        else:
-            data = {'idpResponse' : idpResponse, 'realm' : realm}
-    resp = futils.middlewareRequest(keystoneEndpoint, data, 'POST', not v3)
-    info = json.loads(resp.data)
-    return info, resp
+class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+       
+        #patched!
+        def finish(self, *args, **kw):
+            try:
+                if not self.wfile.closed:
+                    self.wfile.flush()
+                    self.wfile.close()
+            except socket.error:
+                print("Socket Error: ", socket.error)
+            self.rfile.close()
 
-## Get a tenant-scoped token for the user
-# @param keystoneEndpoint The keystone url
-# @param idpResponse The assertion retreived from the IdP
-# @param tenantFn The tenant friendly name
-def getScopedToken(keystoneEndpoint, idpResponse, tenantFn):
-    response = getUnscopedToken(keystoneEndpoint, idpResponse)
-    type, tenantId = futils.getTenantId(response["tenants"])
-    if tenantId is None:
-        print "Error the tenant could not be found, should raise InvalidTenant"
-    scoped = swapTokens(keystoneEndpoint, response["unscopedToken"], type, tenantId)
-    return scoped
+        def do_GET(self):
+            global response
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            parsed_path  = urlparse.urlparse(self.path)
+            params = {}
+            try:
+                #params = dict([p.split('=') for p in parsed_path[4].split('&')])                   <---this is source of error
+                params = urlparse.parse_qs(parsed_path.query)
+            except Exception as e:
+                print("e", e)
+                response = None
 
-## Get a scoped token from an unscoped one
-# @param keystoneEndpoint The keystone url
-# @param unscopedToken The unscoped authentication token obtained from getUnscopedToken()
-# @param tenanId The tenant Id the user wants to use
-def swapTokens(keystoneEndpoint, unscopedToken, type, tenantId, v3):
-    data = {'auth' : {'token' : {'id' : unscopedToken}, type : tenantId}}
-    keystoneEndpoint+="/"
-    if v3 == True:
-       keystoneEndpoint+="auth/"
-       data = {"auth": {"identity": {"methods": ["token"],"token": {"id": unscopedToken}}, "scope":{}}}
-       if type == 'domainId':
-           data["auth"]["scope"]["domain"] = {"id": tenantId}
-       else:
-           data["auth"]["scope"]["project"] = {"id": tenantId}
-    print("value of data sent = ", data)
-    resp = futils.middlewareRequest(keystoneEndpoint + "tokens", data,'POST', withheader = False)
-    return json.loads(resp.data), resp
+            if params:
+                if not params.get('token'):
+                    response = None
+                else:
+                    response = params.get('token')
+                    self.wfile.write("You have successfully logged in. "
+                                "You can close this window now.")
+        def do_POST(self):
+            self.do_GET()
+            
+def get_scoped_token(keystone_endpoint, unscoped_token, selected_protocol):                            #<--------break down into separate functions!
+    #get a list of available projects for the user
+    project_endpoint = keystone_endpoint + '/OS-FEDERATION/projects' 
+    projects = requests.get(project_endpoint, headers={'X-Auth-Token':unscoped_token})
+    projects_list = json.loads(projects.text)
+    chosen_project = futils.select_project(projects_list['projects'])
+    #make the request for the scoped token
+    scoped_token_endpoint = keystone_endpoint + '/auth/tokens'
+    #needed in both header and body for correct authorisation
+    body = json.dumps({'auth': {'identity':{'methods':[selected_protocol['id']], selected_protocol['id']:{'id':unscoped_token}},'scope':{'project':{'id': chosen_project['id']}}}})
+    scoped_token = requests.post(scoped_token_endpoint, headers={'Content-Type': 'application/json', 'X-Auth-Token':unscoped_token}, data=body)
+    return scoped_token

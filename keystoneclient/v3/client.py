@@ -164,7 +164,7 @@ class Client(httpclient.HTTPClient):
         try:
             if auth_url is None:
                 raise ValueError("Cannot authenticate without an auth_url")
-            if self.federated:
+            '''if self.federated:
                 print("\n\n")
                 print('************************************************In client V3: auth_url = ', self.auth_url)
                 print("\n\n")
@@ -175,34 +175,34 @@ class Client(httpclient.HTTPClient):
                 return access.AccessInfoV3(resp.headers['X-Subject-Token'],
                                    tenantData)
 
-            else:
-                auth_methods = []
+            else:'''
+            auth_methods = []
 
-                if token:
-                    auth_methods.append(v3_auth.TokenMethod(token=token))
+            if token:
+                auth_methods.append(v3_auth.TokenMethod(token=token))
 
-                if password:
-                    m = v3_auth.PasswordMethod(user_id=user_id,
-                                               username=username,
-                                               user_domain_id=user_domain_id,
-                                               user_domain_name=user_domain_name,
-                                               password=password)
-                    auth_methods.append(m)
+            if password:
+                m = v3_auth.PasswordMethod(user_id=user_id,
+                                           username=username,
+                                           user_domain_id=user_domain_id,
+                                           user_domain_name=user_domain_name,
+                                           password=password)
+                auth_methods.append(m)
 
-                if not auth_methods:
-                    msg = "A user and password or token is required."
-                    raise exceptions.AuthorizationFailure(msg)
+            if not auth_methods:
+                msg = "A user and password or token is required."
+                raise exceptions.AuthorizationFailure(msg)
 
-                plugin = v3_auth.Auth(auth_url, auth_methods,
-                                      trust_id=trust_id,
-                                      domain_id=domain_id,
-                                      domain_name=domain_name,
-                                      project_id=project_id,
-                                      project_name=project_name,
-                                      project_domain_id=project_domain_id,
-                                      project_domain_name=project_domain_name)
+            plugin = v3_auth.Auth(auth_url, auth_methods,
+                                  trust_id=trust_id,
+                                  domain_id=domain_id,
+                                  domain_name=domain_name,
+                                  project_id=project_id,
+                                  project_name=project_name,
+                                  project_domain_id=project_domain_id,
+                                  project_domain_name=project_domain_name)
 
-                return plugin.get_auth_ref(self.session)
+            return plugin.get_auth_ref(self.session)
         except (exceptions.AuthorizationFailure, exceptions.Unauthorized):
             _logger.debug('Authorization failed.')
             raise

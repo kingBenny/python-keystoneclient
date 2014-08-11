@@ -9,24 +9,6 @@ from keystoneclient import exceptions
 # They are tools to avoid code redundancy
 #############
 
-## Send a request that will be process by the Federation Middleware
-# It add the X-Auth-Type: federated header in the HTTP request
-def middlewareRequest(keystoneEndpoint, data={}, method="GET", withheader=True, pool=None):
-    if withheader:
-        headers = {'X-Authentication-Type': 'federated'}
-    else:
-	    headers = {}
-    if pool is None:
-        pool = urllib3.PoolManager()
-    if method == "GET":
-        data = urllib.urlencode(data)
-        response = pool.request('GET', keystoneEndpoint, fields=data, headers=headers)
-    elif method == "POST":
-        data = json.dumps(data)
-        headers['Content-Type'] = 'application/json'
-        response = pool.urlopen('POST', keystoneEndpoint, body=data, headers=headers)
-    return response
-
 ## Displays the list of tenants to the user so he can choose one
 def selectTenantOrDomain(tenantsList, serverName=None):
     if not serverName:

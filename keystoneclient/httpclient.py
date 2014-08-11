@@ -405,12 +405,8 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
                     token, resp = federated_API.federatedAuthentication(auth_url,
                             tenantFn=project_id, scoped=True)
                     #convert the token to an accessinfo object
-                    print("about to make accessInfo obj")
-                    print("Token is: ", token)
-                    print("resp is: ", resp)
                     resp = access.AccessInfo.factory(resp=resp, body=token,
                                                     region_name=self.region_name)
-                    print("created an accessInfo obj")
                 except exceptions.FederatedException as fedex:
                     raise exceptions.FederatedException('Error while getting + \
                                                      answers from auth server')

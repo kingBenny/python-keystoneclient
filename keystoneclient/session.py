@@ -122,7 +122,7 @@ class Session(object):
         self.cert = cert
         self.timeout = None
         self.redirect = redirect
-        
+
         if timeout is not None:
             self.timeout = float(timeout)
 

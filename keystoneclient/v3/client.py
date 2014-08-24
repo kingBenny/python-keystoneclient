@@ -13,10 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
-from keystoneclient import access
+
 from keystoneclient.auth.identity import v3 as v3_auth
-from keystoneclient.contrib.federated import federated as federated_API
 from keystoneclient import exceptions
 from keystoneclient import httpclient
 from keystoneclient.openstack.common import jsonutils
@@ -35,6 +33,7 @@ from keystoneclient.v3 import role_assignments
 from keystoneclient.v3 import roles
 from keystoneclient.v3 import services
 from keystoneclient.v3 import users
+import logging
 
 
 _logger = logging.getLogger(__name__)
@@ -164,18 +163,6 @@ class Client(httpclient.HTTPClient):
         try:
             if auth_url is None:
                 raise ValueError("Cannot authenticate without an auth_url")
-            '''if self.federated:
-                print("\n\n")
-                print('************************************************In client V3: auth_url = ', self.auth_url)
-                print("\n\n")
-                tenantData, resp = federated_API.federatedAuthentication(
-                                              keystoneEndpoint = self.auth_url,
-                                              v3=True,
-                                              scoped_token=True)
-                return access.AccessInfoV3(resp.headers['X-Subject-Token'],
-                                   tenantData)
-
-            else:'''
             auth_methods = []
 
             if token:

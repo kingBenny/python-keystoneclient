@@ -87,7 +87,7 @@ class FederatedException(ClientException):
     def __init__(self, msg, http_scheme='', http_host='', http_port='',
                  http_path='', http_query='', http_status=0, http_reason='',
                  http_device='', http_response_content=''):
-        Exception.__init__(self, msg)
+        #Exception.__init__(self, msg)
         self.msg = msg
         self.http_scheme = http_scheme
         self.http_host = http_host
@@ -98,6 +98,7 @@ class FederatedException(ClientException):
         self.http_reason = http_reason
         self.http_device = http_device
         self.http_response_content = http_response_content
+        super(FederatedException, self).__init__(msg)
 
     def __str__(self):
         a = self.msg

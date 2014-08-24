@@ -40,10 +40,10 @@ if not hasattr(urlparse, 'parse_qsl'):
 from keystoneclient import access
 from keystoneclient.auth import base
 from keystoneclient import baseclient
-from keystoneclient import exceptions
-from keystoneclient import session as client_session
 from keystoneclient.contrib.federated import federated as federated_API
+from keystoneclient import exceptions
 from keystoneclient.openstack.common import jsonutils
+from keystoneclient import session as client_session
 from keystoneclient import utils
 
 
@@ -124,6 +124,8 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
         :param string trust_id: Trust ID for trust scoping. (optional)
         :param object session: A Session object to be used for
                                communicating with the identity service.
+        :param boolean federated: Enables federated authentication.
+                                  default: False (optional).
 
         """
         # set baseline defaults
@@ -214,8 +216,8 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
             self.trust_id = trust_id
 
         # federated authentication
-        # federated must always be present in some form 
-        # as its value is tested in the client classes that 
+        # federated must always be present in some form
+        # as its value is tested in the client classes that
         # inherit from this.
         self.federated = federated
 
@@ -398,18 +400,20 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
         new_token_needed = False
         if auth_ref is None or self.force_new_token:
             new_token_needed = True
-            '''this conditional statement handles Federated authentication 
+            '''this conditional statement handles Federated authentication
             functionality with existing authenticate function.'''
             if self.federated:
                 try:
-                    token, resp = federated_API.federatedAuthentication(auth_url,
-                            tenantFn=project_id, scoped=True)
+                    token, resp = federated_API.federatedAuthentication(
+                        auth_url, tenantFn=project_id, scoped=True)
                     #convert the token to an accessinfo object
                     resp = access.AccessInfo.factory(resp=resp, body=token,
-                                                    region_name=self.region_name)
-                except exceptions.FederatedException as fedex:
-                    raise exceptions.FederatedException('Error while getting + \
-                                                     answers from auth server')
+                                                     region_name=
+                                                     self.region_name)
+                except exceptions.FederatedException:
+                    raise exceptions.FederatedException('Error while ' +
+                                                        'getting answers' +
+                                                        'from auth server')
             else:
                 kwargs['password'] = password
                 resp = self.get_raw_token_from_identity_service(**kwargs)

@@ -314,7 +314,6 @@ class positional(object):
                     raise TypeError(message)
                 elif self._enforcement == self.WARN:
                     logger.warn(message)
-
             return func(*args, **kwargs)
 
         return inner

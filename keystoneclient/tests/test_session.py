@@ -441,7 +441,6 @@ class SessionAuthTests(utils.TestCase):
         # no plugin with an endpoint filter won't work
         self.assertRaises(exceptions.MissingAuthPlugin, sess.get, 'path',
                           authenticated=False, endpoint_filter=endpoint_filter)
-
         resp = sess.get('path', auth=passed, endpoint_filter=endpoint_filter)
 
         self.assertEqual(200, resp.status_code)

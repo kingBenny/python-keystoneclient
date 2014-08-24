@@ -11,66 +11,79 @@
 # under the License.
 
 import BaseHTTPServer
-from keystoneclient import exceptions
 import federated_utils as futils
-import imp
 import json
+from keystoneclient import exceptions
 import os
 import requests
 import ssl
 import sys
-import time
 import urlparse
 import webbrowser
 
-def federatedAuthentication(keystone_endpoint, realm=None, tenantFn=None, scoped=True):
+
+def federatedAuthentication(keystone_endpoint, realm=None,
+                            tenantFn=None, scoped=True):
     response = get_IdP_List(keystone_endpoint)
     if realm is None or {'name': realm} not in response['realms']:
         realm = select_IdP_and_protocol(keystone_endpoint, response)
-    authentication_endpoint = keystone_endpoint + '/OS-FEDERATION/identity_providers/' + realm['IdP'] + '/protocols/' + realm['protocol'] + '/auth'
+    authentication_endpoint = keystone_endpoint + '/OS-FEDERATION' + \
+        '/identity_providers/' + realm['IdP'] + \
+        '/protocols/' + realm['protocol'] + '/auth'
     unscoped_token = get_unscoped_token(authentication_endpoint)
     if scoped:
-        scoped_token = get_scoped_token(keystone_endpoint, unscoped_token, realm['protocol'])
+        scoped_token = get_scoped_token(keystone_endpoint,
+                                        unscoped_token, realm['protocol'])
         return json.loads(scoped_token.text), scoped_token
-        #the scoped_token.text is the body (lacking the ID) and the scoped_token is the entire server response, containing the header and 
-        #therefore the iD.
+        '''the scoped_token.text is the body (lacking the ID) and the
+        scoped_token is the entire server response, containing the header
+        and therefore the iD.
+        '''
     else:
-        return unscoped_token 
+        return unscoped_token
+
 
 def select_IdP_and_protocol(keystone_endpoint, identity_providers):
     if not identity_providers:
-        raise exceptions.FederatedException('There are no available IdPs at the os-auth-url specified')    
+        raise exceptions.FederatedException('There are no available IdPs ' +
+                                            'at the os-auth-url specified')
     print('\nPlease choose a service to authenticate with:')
-    auth_options = []    
+    auth_options = []
     index = 0
-    print('\t' + ('-'*38))
+    print('\t' + ('-' * 38))
     print('\tIndex\t| IdP\t\t| Protocol\t')
-    print('\t' + ('-'*38))
+    print('\t' + ('-' * 38))
     for IdP in identity_providers['identity_providers']:
         protocol_list = get_protocol_List(keystone_endpoint, IdP)
         if not protocol_list:
-            raise exceptions.FederatedException('There are no available protocols for the specified IdP')
+            raise exceptions.FederatedException('There are no available ' +
+                                                'protocols for the ' +
+                                                'specified IdP')
         for protocol in protocol_list['protocols']:
-            print('\t{ ' + str(index) + ' }\t  ' + IdP['id'] + '\t\t  ' + protocol['id'])
-            auth_options.append({'IdP' : IdP['id'], 'protocol' : protocol['id']})
+            print('\t{ ' + str(index) + ' }\t  ' + IdP['id'] +
+                  '\t\t  ' + protocol['id'])
+            auth_options.append({'IdP': IdP['id'],
+                                 'protocol': protocol['id']})
             index += 1
     #give the user a way to cancel with a quit option
     print('\t{ ' + str(len(auth_options)) + ' }\t  Quit')
-    print('\t' + ('-'*38))
+    print('\t' + ('-' * 38))
     choice = None
     while choice is None:
-    	try:
-            choice = int(raw_input('Enter the number corresponding to the service you want to use: '))
-    	except:
+        try:
+            choice = int(raw_input('Enter the number corresponding to' +
+                                   ' the service you want to use: '))
+        except Exception:
             print('An error occurred with your selection')
         if choice < 0 or choice > len(auth_options):
             print('The selection made was not a valid choice of service')
-	    choice = None
+            choice = None
     if choice == len(auth_options):
         print('Quitting...')
         sys.exit(0)
     else:
-        return auth_options[choice]      
+        return auth_options[choice]
+
 
 def get_IdP_List(keystone_endpoint):
     keystone_endpoint += '/OS-FEDERATION/identity_providers'
@@ -78,11 +91,13 @@ def get_IdP_List(keystone_endpoint):
     info = json.loads(resp.text)
     return info
 
+
 def get_protocol_List(keystone_endpoint, realm):
     #get and return a list of protocols for the specified IdP
     protocols = requests.get(realm['links']['protocols'])
     protocol_data = json.loads(protocols.text)
     return protocol_data
+
 
 def get_unscoped_token(authentication_endpoint):
     global response
@@ -107,15 +122,15 @@ def get_unscoped_token(authentication_endpoint):
     timeout = 20
     if key == "default":
         key = os.path.join(os.path.dirname(__file__),
-                                    "protocols/certs/server.key")
+                           "protocols/certs/server.key")
     if cert == "default":
-        cert = os.path.join(os.path.dirname(__file__), 
-                                    "protocols/certs/server.crt") 
+        cert = os.path.join(os.path.dirname(__file__),
+                            "protocols/certs/server.crt")
     #create the HTTP server
     httpd = BaseHTTPServer.HTTPServer(('localhost', 8080), RequestHandler)
     try:
         httpd.socket = ssl.wrap_socket(httpd.socket, keyfile=key,
-                                    certfile=cert, server_side=True)
+                                       certfile=cert, server_side=True)
         httpd.socket.settimeout(1)
     except BaseException as e:
         print(e.value)
@@ -128,19 +143,22 @@ def get_unscoped_token(authentication_endpoint):
     while response is None and count < timeout:
         try:
             httpd.handle_request()
-            print("After the http.handle_request call")            
             count = count + 1
         except Exception as e:
             print(e)
     if response is None:
-        print('There was no response from the Identity Provider +\
-                                            or the request timed out')
+        print('There was no response from the Identity Provider' +
+              'or the request timed out')
         exit("An error occurred, please try again")
     print("Authentication Complete\n")
     return response[0]
 
+
 class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-       
+        #BaseHTTPServer suppress output of token to user
+        def log_message(self, format, *args):
+            return
+
         #patched!
         def finish(self, *args, **kw):
             try:
@@ -156,10 +174,9 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            parsed_path  = urlparse.urlparse(self.path)
+            parsed_path = urlparse.urlparse(self.path)
             params = {}
             try:
-                #params = dict([p.split('=') for p in parsed_path[4].split('&')])                   <---this is source of error
                 params = urlparse.parse_qs(parsed_path.query)
             except Exception as e:
                 print("e", e)
@@ -170,26 +187,29 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     response = None
                 else:
                     response = params.get('token')
-                    self.wfile.write("You have successfully logged in +\
-                                          You can close this window now.")
+                    self.wfile.write("Authentication Complete. \n")
+                    self.wfile.write("You can safely close this window.")
+
         def do_POST(self):
             self.do_GET()
-            
+
+
 def get_scoped_token(keystone_endpoint, unscoped_token, selected_protocol):
     #get a list of available projects for the user
     project_endpoint = keystone_endpoint + '/OS-FEDERATION/projects'
-    projects = requests.get(project_endpoint, 
-                                headers={'X-Auth-Token':unscoped_token})
+    projects = requests.get(project_endpoint,
+                            headers={'X-Auth-Token': unscoped_token})
     projects_list = json.loads(projects.text)
     chosen_project = futils.select_project(projects_list['projects'])
     #make the request for the scoped token
     scoped_token_endpoint = keystone_endpoint + '/auth/tokens'
     #needed in both header and body for correct authorisation
-    body = json.dumps({'auth': {'identity':{'methods':[selected_protocol], 
-                                selected_protocol:{'id':unscoped_token}},
-                                'scope':{'project':
-                                        {'id': chosen_project['id']}}}})
-    scoped_token = requests.post(scoped_token_endpoint, 
-                                headers={'Content-Type': 'application/json', 
-                                'X-Auth-Token':unscoped_token}, data=body)
+    body = json.dumps({'auth': {'identity': {'methods': [selected_protocol],
+                                selected_protocol: {'id': unscoped_token}},
+                                'scope': {'project':
+                                {'id': chosen_project['id']}}}})
+    scoped_token = requests.post(scoped_token_endpoint,
+                                 headers={'Content-Type': 'application/json',
+                                 'X-Auth-Token': unscoped_token},
+                                 data=body)
     return scoped_token

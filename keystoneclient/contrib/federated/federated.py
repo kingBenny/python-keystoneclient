@@ -24,6 +24,11 @@ import webbrowser
 
 def federatedAuthentication(keystone_endpoint, realm=None,
                             tenantFn=None, scoped=True):
+    """Makes a number of server requests and builds the
+    authorisation endpoint based on the users choice of
+    IdP and Protocol. Once the user has specified a project
+    the unscoped token can be exchanged for a scoped-token.
+    """
     response = get_IdP_List(keystone_endpoint)
     if realm is None or {'name': realm} not in response['realms']:
         realm = select_IdP_and_protocol(keystone_endpoint, response)
@@ -44,6 +49,10 @@ def federatedAuthentication(keystone_endpoint, realm=None,
 
 
 def select_IdP_and_protocol(keystone_endpoint, identity_providers):
+    """Allows the user to choose an IdP and protocol from the list
+    displayed to stdout. Makes calls to the keystone server to
+    obtain the lists of IdPs and Protocols
+    """
     if not identity_providers:
         raise exceptions.FederatedException('There are no available IdPs ' +
                                             'at the os-auth-url specified')
@@ -86,6 +95,9 @@ def select_IdP_and_protocol(keystone_endpoint, identity_providers):
 
 
 def get_IdP_List(keystone_endpoint):
+    """targets the keystone server at the specified endpoint
+    to obtain a list of IdPs
+    """
     keystone_endpoint += '/OS-FEDERATION/identity_providers'
     resp = requests.get(keystone_endpoint)
     info = json.loads(resp.text)
@@ -93,6 +105,9 @@ def get_IdP_List(keystone_endpoint):
 
 
 def get_protocol_List(keystone_endpoint, realm):
+    """processs the server response and extracts the protocol
+    data.
+    """
     #get and return a list of protocols for the specified IdP
     protocols = requests.get(realm['links']['protocols'])
     protocol_data = json.loads(protocols.text)
@@ -100,6 +115,10 @@ def get_protocol_List(keystone_endpoint, realm):
 
 
 def get_unscoped_token(authentication_endpoint):
+    """Tries to load a security certificate and creates an HTTP server
+    to listen for the response in the browser. Captures the server
+    response and redirects it to the localhost.
+    """
     global response
     response = None
     #try to load certificate
@@ -195,6 +214,9 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
 
 def get_scoped_token(keystone_endpoint, unscoped_token, selected_protocol):
+    """Exchanges the unscoped token for a token scoped to the specified
+    project.
+    """
     #get a list of available projects for the user
     project_endpoint = keystone_endpoint + '/OS-FEDERATION/projects'
     projects = requests.get(project_endpoint,

@@ -401,7 +401,7 @@ class HTTPClient(baseclient.Client, base.BaseAuthPlugin):
         if auth_ref is None or self.force_new_token:
             new_token_needed = True
             '''this conditional statement handles Federated authentication
-            functionality with existing authenticate function.'''
+            functionality in place of existing authentication.'''
             if self.federated:
                 try:
                     token, resp = federated_API.federatedAuthentication(

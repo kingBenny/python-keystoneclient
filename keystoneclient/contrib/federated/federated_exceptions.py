@@ -11,10 +11,11 @@
 # under the License.
 
 '''
-This modeule is marked for deprecation and should
-not be used any longer within any new client implementation.
-See the general exceptions class for the client and
-define the Federated exceptions there.
+This module is marked for deprecation and should
+not be used with any new client implementation.
+Instead, define a custom exception from within the
+exceptions.py module reference your Federated exceptions
+there.
 '''
 
 

@@ -36,14 +36,17 @@ import time
 
 TEST_RUNS = 1001
 AUTH_URL = "http://icehouse.sec.cs.kent.ac.uk:5000/v3"
-
-'''
-A patched version of the federated API that returns element 0
-from the list provided. The raw_input call has been removed.
-'''
+FILE_NAME = "benchmark_data.csv"
 
 
 def patched_selectIdP(keystone_endpoint, identity_providers):
+    """A patched version of the federated API that returns element 0
+    from the list provided. The raw_input call has been removed.
+    @param: keystone_endpoint. the authorisation url of the keystone
+    server.
+    @param: identity_providers. A list of IdPs returned by the Keystone
+    server.
+    """
     if not identity_providers:
         raise exceptions.FederatedException('There are no available ' +
                                             'IdPs at the os-auth-url' +
@@ -76,13 +79,13 @@ def patched_selectIdP(keystone_endpoint, identity_providers):
     else:
         return auth_options[choice]
 
-'''
-A patched version of the federated API that returns element 0
-from the list provided. The raw_input call has been removed.
-'''
-
 
 def patched_select_project(item_list):
+    """A patched version of the federated API that returns element 0
+    from the list provided. The raw_input call has been removed.
+    @param: item_list. A list of projects returned by the keystone
+    server, once the user has authenticated.
+    """
     print("Please choose one of the following Projects:")
     if not item_list:
         raise exceptions.FederatedException("There are no available projects.")
@@ -97,37 +100,31 @@ def patched_select_project(item_list):
     else:
         return item_list[choice]
 
-'''
-Patches the two functions in the federated library
-The functions are set to choose element 0
-in the list provided to each function. The get raw
-input call has been removed for automation.
-'''
-
 
 def create_monkey_patch():
+    """Monkey-patches two functions in the federated library.
+    This removes all user input from the program flow and
+    always returns the first element in the IdP and project list.
+    """
     federated.select_IdP_and_protocol = patched_selectIdP
     futils.select_project = patched_select_project
     print("Completed monkey-patching")
 
-'''
-creates a new log-file called benchmark_data.csv
-'''
-
 
 def create_log_file():
-    log_file = open("benchmark_data.csv", 'w')
+    """Creates a new log-file. Future file actions append the
+    file created in this function.
+    """
+    log_file = open(FILE_NAME, 'w')
     log_file.write("Log-file created on " + time.strftime("%d/%m/%Y") +
                    " at " + time.strftime("%H:%M:%S") + "\n")
     log_file.close()
 
-'''
-The main benchmark function. Runs the iterations and writes the
-results to the benchmark_data.csv file.
-'''
-
 
 def run_benchmark():
+    """The main benchmark function. Creates the patches, a log
+    file and writes the duration of authentication to FILE_NAME
+    """
     create_monkey_patch()
     create_log_file()
     start_time = None
@@ -137,7 +134,7 @@ def run_benchmark():
         #create a v3 client for federated login.
         client.Client(auth_url=AUTH_URL, federated=True)
         end_time = int(round(time.time() * 1000))
-        log_file = open("benchmark_data.csv", 'a')
+        log_file = open(FILE_NAME, 'a')
         log_file.write(str(end_time - start_time) + ", ")
         log_file.close()
 
